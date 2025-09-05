@@ -8,19 +8,18 @@ class OtpService {
   /**
    * Generate OTP for user
    */
-  static async generateOtp(userId, type) {
+  static async generateOtp(userId, type, transaction = null) {
     const otpCode = generateOtp(6, "numeric");
     const expireMinutes = parseInt(process.env.OTP_EXPIRES_IN, 10);
 
-    await withTransaction(async (transaction) => {
-      await Otp.update(
-        { used: true },
-        { where: { userId, type, used: false }, transaction }
-      );
+    const runner = transaction
+      ? async (fn) => fn(transaction)
+      : withTransaction;
 
+    await runner(async (trx) => {
       await Otp.destroy({
         where: { userId, type },
-        transaction,
+        transaction: trx,
       });
 
       await Otp.create(
@@ -29,8 +28,9 @@ class OtpService {
           code: otpCode,
           type,
           expiresAt: new Date(Date.now() + expireMinutes * 60 * 1000),
+          used: false,
         },
-        { transaction }
+        { transaction: trx }
       );
     });
 
@@ -40,8 +40,12 @@ class OtpService {
   /**
    * Verify OTP
    */
-  static async verifyOtp(userId, type, code) {
-    return await withTransaction(async (transaction) => {
+  static async verifyOtp(userId, type, code, transaction = null) {
+    const runner = transaction
+      ? async (fn) => fn(transaction)
+      : withTransaction;
+
+    return runner(async (trx) => {
       const otp = await Otp.findOne({
         where: {
           userId,
@@ -50,14 +54,14 @@ class OtpService {
           used: false,
           expiresAt: { [Op.gt]: new Date() },
         },
-        transaction,
-        lock: transaction.LOCK.UPDATE,
+        transaction: trx,
+        lock: trx.LOCK.UPDATE,
       });
 
       if (!otp) throw new BadRequestError("Invalid or expired OTP");
 
       otp.used = true;
-      await otp.save({ transaction });
+      await otp.save({ transaction: trx });
 
       return true;
     });

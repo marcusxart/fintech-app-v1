@@ -2,13 +2,13 @@ const { z } = require("zod");
 
 // 🔹 Common Fields
 const emailField = z
-  .string({ required_error: "Email is required" })
+  .string("Email is required")
   .trim()
   .nonempty("Email is required")
   .email("Please enter a valid email address");
 
 const passwordField = z
-  .string({ required_error: "Password is required" })
+  .string("Password is required")
   .trim()
   .nonempty("Password is required")
   .min(8, "Password must be at least 8 characters long")
@@ -19,20 +19,20 @@ const passwordField = z
   );
 
 const confirmPasswordField = z
-  .string({ required_error: "Confirm password is required" })
+  .string("Confirm password is required")
   .trim()
   .nonempty("Please confirm your password")
   .min(8, "Confirm password must be at least 8 characters long");
 
-const tokenField = z
-  .string({ required_error: "Token is required" })
+const codeField = z
+  .string("Code is required")
   .trim()
-  .nonempty("Token is required")
-  .min(10, "Invalid token. Please check the link and try again.");
+  .nonempty("Code is required")
+  .min(6, "Invalid code. Please check and try again.");
 
 const nameField = (label = "Name") =>
   z
-    .string({ required_error: `${label} is required` })
+    .string(`${label} is required`)
     .trim()
     .nonempty(`Please enter your ${label.toLowerCase()}`)
     .min(3, `${label} must be at least 3 characters long`);
@@ -47,7 +47,7 @@ const dialCodeField = z
   );
 
 const phoneNumberField = z
-  .string({ required_error: "Phone number is required" })
+  .string("Phone number is required")
   .trim()
   .nonempty("Phone number is required")
   .regex(
@@ -79,11 +79,7 @@ const createAccountSchema = z.object({
 const loginSchema = z.object({
   body: z.object({
     email: emailField,
-    password: z
-      .string({ required_error: "Password is required" })
-      .trim()
-      .nonempty("Password is required")
-      .min(8, "Password must be at least 8 characters long"),
+    password: passwordField,
   }),
 });
 
@@ -97,6 +93,7 @@ const changePasswordSchema = z.object({
       ),
       newPassword: passwordField,
       confirmPassword: confirmPasswordField,
+      code: codeField.optional(), // OTP if you want to enforce it
     })
     .refine((data) => data.newPassword === data.confirmPassword, {
       message: "New passwords do not match. Please try again.",
@@ -113,11 +110,10 @@ const emailSchema = z.object({
 
 // Reset Password
 const resetPasswordSchema = z.object({
-  query: z.object({
-    token: tokenField,
-  }),
   body: z
     .object({
+      email: emailField,
+      code: codeField,
       newPassword: passwordField,
       confirmPassword: confirmPasswordField,
     })
@@ -129,8 +125,9 @@ const resetPasswordSchema = z.object({
 
 // Verify Email
 const verifyEmailSchema = z.object({
-  query: z.object({
-    token: tokenField,
+  body: z.object({
+    email: emailField,
+    code: codeField,
   }),
 });
 

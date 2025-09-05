@@ -1,4 +1,4 @@
-const { Users } = require("../database/models");
+const { Users, Media } = require("../database/models");
 const {
   BadRequestError,
   ForbiddenError,
@@ -6,11 +6,12 @@ const {
   UnauthorizedError,
 } = require("../utils/appError");
 const { userExcludes } = require("../utils/excludes");
+const { mediaIncludes } = require("../utils/includes");
 const { hashPassword, verifyPassword } = require("../utils/hashPassword");
 const { generateAccessToken } = require("../utils/jwt");
 const withTransaction = require("../utils/withTransaction");
-const crypto = require("crypto");
 const { Op } = require("sequelize");
+const OtpService = require("../otp/otp.service");
 
 class AuthService {
   /**
@@ -47,11 +48,7 @@ class AuthService {
       const formatName = (name) =>
         name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
 
-      // Generate verify token
-      const verifyToken = crypto.randomBytes(32).toString("hex");
-      const expireMinutes = parseInt(process.env.VERIFY_TOKEN_EXPIRES_IN, 10);
-
-      await Users.create(
+      const user = await Users.create(
         {
           firstName: formatName(data.firstName),
           lastName: formatName(data.lastName),
@@ -59,17 +56,13 @@ class AuthService {
           password: hashed,
           dialCode: data.dialCode,
           phoneNumber: fullPhoneNumber,
-          verifyToken,
-          verifyTokenExpires: new Date(Date.now() + expireMinutes * 60 * 1000),
         },
         {
           transaction,
         }
       );
 
-      return {
-        verifyToken,
-      };
+      return { userId: user.id };
     });
   }
 
@@ -91,7 +84,7 @@ class AuthService {
   /**
    * Change the user's password
    */
-  static async changePassword(userId, oldPass, newPass, confirmPass) {
+  static async changePassword(userId, oldPass, newPass, confirmPass, code) {
     return withTransaction(async (transaction) => {
       const user = await Users.findByPk(userId, { transaction });
       if (!user) throw new UnauthorizedError("User not found");
@@ -114,10 +107,11 @@ class AuthService {
 
       user.password = await hashPassword(newPass);
 
-      // ✅ Auto verify if still unverified
       if (!user.emailVerified) {
         user.emailVerified = true;
-        user.verifyToken = null;
+      }
+
+      if (!code) {
       }
 
       await user.save({ transaction });
@@ -128,26 +122,18 @@ class AuthService {
   /**
    * Verify a user's email with a token
    */
-  static async verifyEmail(token) {
+  static async verifyEmail(email, code) {
     return withTransaction(async (transaction) => {
-      const user = await Users.findOne({
-        where: {
-          verifyToken: token,
-          verifyTokenExpires: { [Op.gt]: new Date() },
-        },
-        transaction,
-      });
+      const user = await Users.findOne({ where: { email }, transaction });
+      if (!user) throw new NotFoundError("User not found");
 
-      if (!user)
-        throw new BadRequestError("Invalid or expired verification token");
-
-      if (user.emailVerified)
+      if (user.emailVerified) {
         throw new BadRequestError("Email already verified");
+      }
+
+      await OtpService.verifyOtp(user.id, "verify-email", code, transaction);
 
       user.emailVerified = true;
-      user.verifyToken = null;
-      user.verifyTokenExpires = null;
-
       await user.save({ transaction });
 
       return true;
@@ -157,77 +143,40 @@ class AuthService {
   /**
    * Resend verification token
    */
-  static async resendVerifyToken(email) {
-    return withTransaction(async (transaction) => {
-      const user = await Users.findOne({ where: { email }, transaction });
+  static async sendEmailVerifyCode(email) {
+    const user = await Users.findOne({ where: { email } });
 
-      if (!user) throw new NotFoundError("User not found");
+    if (!user) throw new NotFoundError("User not found");
 
-      if (user.emailVerified)
-        throw new BadRequestError("Email already verified");
+    if (user.emailVerified) throw new BadRequestError("Email already verified");
 
-      const verifyToken = crypto.randomBytes(32).toString("hex");
-      const expireMinutes = parseInt(process.env.VERIFY_TOKEN_EXPIRES_IN, 10);
+    const otpCode = await OtpService.generateOtp(user.id, "verify-email");
 
-      user.verifyToken = verifyToken;
-      user.verifyTokenExpires = new Date(
-        Date.now() + expireMinutes * 60 * 1000
-      );
-
-      await user.save({ transaction });
-      return verifyToken;
-    });
+    return otpCode;
   }
 
   /**
    * Generate a reset password token for a user
    */
   static async forgotPassword(email) {
-    return withTransaction(async (transaction) => {
-      const user = await Users.findOne({ where: { email }, transaction });
-      if (!user) throw new NotFoundError("User not found");
+    const user = await Users.findOne({ where: { email } });
+    if (!user) throw new NotFoundError("User not found");
 
-      const resetToken = crypto.randomBytes(32).toString("hex");
-      const resetTokenHash = crypto
-        .createHash("sha256")
-        .update(resetToken)
-        .digest("hex");
+    const otpCode = await OtpService.generateOtp(user.id, "reset-password");
 
-      const expireMinutes = parseInt(
-        process.env.RESET_TOKEN_EXPIRES_IN || "15",
-        10
-      );
-
-      user.resetPasswordToken = resetTokenHash;
-      user.resetPasswordExpires = new Date(
-        Date.now() + expireMinutes * 60 * 1000
-      );
-
-      await user.save({ transaction });
-      return resetToken;
-    });
+    return otpCode;
   }
 
   /**
    * Reset a user's password with a valid token
    */
-  static async resetPassword(token, newPass, confirmPass) {
+  static async resetPassword(email, newPass, confirmPass, code) {
     return withTransaction(async (transaction) => {
-      const resetTokenHash = crypto
-        .createHash("sha256")
-        .update(token)
-        .digest("hex");
+      const user = await Users.findOne({ where: { email }, transaction });
+      if (!user) throw new NotFoundError("User not found");
 
-      const user = await Users.findOne({
-        where: {
-          resetPasswordToken: resetTokenHash,
-          resetPasswordExpires: { [Op.gt]: new Date() },
-        },
-        transaction,
-      });
+      await OtpService.verifyOtp(user.id, "reset-password", code, transaction);
 
-      if (!user) throw new BadRequestError("Invalid or expired reset token");
-      // ✅ Check confirm password
       if (newPass !== confirmPass) {
         throw new BadRequestError(
           "New password and confirm password do not match"
@@ -235,6 +184,7 @@ class AuthService {
       }
 
       const isSame = await verifyPassword(newPass, user.password);
+
       if (isSame) {
         throw new BadRequestError(
           "New password must be different from old password"
@@ -242,14 +192,9 @@ class AuthService {
       }
 
       user.password = await hashPassword(newPass);
-      user.resetPasswordToken = null;
-      user.resetPasswordExpires = null;
 
-      // ✅ Auto verify if still unverified
       if (!user.emailVerified) {
         user.emailVerified = true;
-        user.verifyToken = null;
-        user.verifyTokenExpires = null;
       }
 
       await user.save({ transaction });
@@ -263,10 +208,35 @@ class AuthService {
   static async me(userId) {
     const user = await Users.findByPk(userId, {
       attributes: { exclude: userExcludes },
+      include: [
+        {
+          model: Media,
+          as: "profileImage",
+          attributes: mediaIncludes,
+        },
+      ],
     });
 
     if (!user) throw new UnauthorizedError("Unauthorized");
     return user;
+  }
+
+  /**
+   * Verify an OTP for a user (generic)
+   */
+  static async verifyOtp(email, type, code) {
+    const user = await Users.findOne({ where: { email } });
+    if (!user) throw new NotFoundError("User not found");
+
+    if (user.emailVerified && type === "verify-email")
+      throw new BadRequestError("Email already verified");
+
+    if (user.phoneNumberVerified && type === "verify-phone-number")
+      throw new BadRequestError("Phone number already verified");
+
+    await OtpService.verifyOtp(user.id, type, code);
+
+    return true;
   }
 }
 

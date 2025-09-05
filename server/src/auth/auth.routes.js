@@ -13,7 +13,7 @@ const authMiddleware = require("../middlewares/auth.middleware");
 
 const router = Router();
 
-// Public routes
+// 🔹 Public routes
 router.post(
   "/register",
   validateMiddleware(createAccountSchema),
@@ -39,13 +39,14 @@ router.post(
   validateMiddleware(verifyEmailSchema),
   AuthController.verifyEmail
 );
+
 router.post(
-  "/resend-verify-email-token",
+  "/send-verify-email",
   validateMiddleware(emailSchema),
-  AuthController.resendVerifyToken
+  AuthController.sendEmailVerifyCode
 );
 
-// Protected
+// 🔹 Protected routes
 router.use(authMiddleware);
 
 router.get("/me", AuthController.me);

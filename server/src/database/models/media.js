@@ -1,16 +1,15 @@
 "use strict";
 const { Model } = require("sequelize");
-const { OTP_TYPES } = require("../../utils/variables");
 
 module.exports = (sequelize, DataTypes) => {
-  class Otp extends Model {
+  class Media extends Model {
     static associate(models) {
-      // Each OTP belongs to a User
-      Otp.belongsTo(models.Users, { foreignKey: "userId", as: "user" });
+      // Each file is uploaded by a User
+      Media.belongsTo(models.Users, { foreignKey: "userId", as: "user" });
     }
   }
 
-  Otp.init(
+  Media.init(
     {
       id: {
         type: DataTypes.UUID,
@@ -21,33 +20,34 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.UUID,
         allowNull: false,
       },
-      code: {
-        type: DataTypes.STRING(6),
-        allowNull: false,
-      },
-      type: {
+      key: {
         type: DataTypes.STRING,
         allowNull: false,
-        validate: {
-          isIn: [OTP_TYPES],
-        },
       },
-      expiresAt: {
-        type: DataTypes.DATE,
+      url: {
+        type: DataTypes.STRING,
         allowNull: false,
       },
-      used: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false,
+      size: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+      },
+      mimeType: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      originalName: {
+        type: DataTypes.STRING,
+        allowNull: true,
       },
     },
     {
       sequelize,
-      modelName: "Otp",
-      tableName: "Otps",
+      modelName: "Media",
+      tableName: "Media",
       timestamps: true,
     }
   );
 
-  return Otp;
+  return Media;
 };

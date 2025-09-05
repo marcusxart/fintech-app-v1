@@ -1,10 +1,19 @@
 "use strict";
 const { Model } = require("sequelize");
+const { USER_LEVELS } = require("../../utils/variables");
 
 module.exports = (sequelize, DataTypes) => {
   class Users extends Model {
     static associate(models) {
       // define association here
+      Users.hasMany(models.Otp, { foreignKey: "userId", as: "otps" });
+      Users.hasOne(models.Kyc, { foreignKey: "userId", as: "kyc" });
+      Users.hasOne(models.Address, { foreignKey: "userId", as: "address" });
+
+      Users.belongsTo(models.Media, {
+        foreignKey: "profileImageId",
+        as: "profileImage",
+      });
     }
   }
   Users.init(
@@ -28,6 +37,16 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         validate: { validate: { isEmail: true } },
       },
+      tier: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 1,
+        validate: {
+          isIn: {
+            args: [USER_LEVELS],
+          },
+        },
+      },
       password: {
         type: DataTypes.STRING,
         allowNull: false,
@@ -41,20 +60,8 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
       },
-      verifyToken: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      verifyTokenExpires: {
-        type: DataTypes.DATE,
-        allowNull: true,
-      },
-      resetPasswordToken: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      resetPasswordExpires: {
-        type: DataTypes.DATE,
+      profileImageId: {
+        type: DataTypes.UUID,
         allowNull: true,
       },
     },

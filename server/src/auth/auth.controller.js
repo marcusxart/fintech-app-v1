@@ -8,14 +8,12 @@ class AuthController {
   static register = asyncHandler(async (req, res) => {
     const data = req.body;
 
-    const results = await AuthService.createAccount(data);
+    await AuthService.createAccount(data);
 
     // TODO: send verification email here
-
     res.status(201).json({
       status: "success",
       message: "Account created successfully. Please verify your email.",
-      ...results,
     });
   });
 
@@ -39,16 +37,15 @@ class AuthController {
    */
   static changePassword = asyncHandler(async (req, res) => {
     const userId = req.user.id;
-    const { oldPassword, newPassword, confirmPassword } = req.body;
+    const { oldPassword, newPassword, confirmPassword, code } = req.body;
 
     await AuthService.changePassword(
       userId,
       oldPassword,
       newPassword,
-      confirmPassword
+      confirmPassword,
+      code
     );
-
-    // TODO: optionally send email notification about password change
 
     res.status(200).json({
       status: "success",
@@ -60,11 +57,9 @@ class AuthController {
    * Verify email
    */
   static verifyEmail = asyncHandler(async (req, res) => {
-    const { token } = req.query;
+    const { email, code } = req.body;
 
-    await AuthService.verifyEmail(token);
-
-    // TODO: send confirmation email after successful verification
+    await AuthService.verifyEmail(email, code);
 
     res.status(200).json({
       status: "success",
@@ -73,20 +68,18 @@ class AuthController {
   });
 
   /**
-   * resend email verification token
+   * Resend email verification code
    */
-  static resendVerifyToken = asyncHandler(async (req, res) => {
+  static sendEmailVerifyCode = asyncHandler(async (req, res) => {
     const { email } = req.body;
 
-    const token = await AuthService.resendVerifyToken(email);
-
-    // TODO: send confirmation email after successful verification
+    const code = await AuthService.sendEmailVerifyCode(email);
 
     res.status(200).json({
       status: "success",
       message:
         "A new verification email has been sent. Please check your inbox.",
-      token,
+      code,
     });
   });
 
@@ -96,14 +89,12 @@ class AuthController {
   static forgotPassword = asyncHandler(async (req, res) => {
     const { email } = req.body;
 
-    const token = await AuthService.forgotPassword(email);
-
-    // TODO: send reset token to user's email
+    const code = await AuthService.forgotPassword(email);
 
     res.status(200).json({
       status: "success",
       message: "Password reset token generated",
-      token,
+      code,
     });
   });
 
@@ -111,13 +102,9 @@ class AuthController {
    * Reset password
    */
   static resetPassword = asyncHandler(async (req, res) => {
-    const { token } = req.query;
-    console.log(token);
-    const { newPassword, confirmPassword } = req.body;
+    const { newPassword, confirmPassword, email, code } = req.body;
 
-    await AuthService.resetPassword(token, newPassword, confirmPassword);
-
-    // TODO: send confirmation email about password reset
+    await AuthService.resetPassword(email, newPassword, confirmPassword, code);
 
     res.status(200).json({
       status: "success",
