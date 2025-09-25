@@ -75,6 +75,8 @@ class AuthController {
       confirmPassword
     );
 
+    await AuthService.logout(userId);
+
     res.status(200).json({
       status: "success",
       message: "Password updated successfully",
