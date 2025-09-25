@@ -2,17 +2,13 @@ const jwt = require("jsonwebtoken");
 const { UnauthorizedError } = require("./appError");
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "1h";
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN;
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 
-if (!JWT_SECRET) {
-  throw new Error("JWT_SECRET must be defined in environment variables");
-}
+const JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN;
 
 /**
  * Generate an access token
- *
- * @param {Object} payload - User payload (decoded user object)
- * @returns {string} Signed JWT
  */
 const generateAccessToken = (payload) => {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
@@ -20,10 +16,6 @@ const generateAccessToken = (payload) => {
 
 /**
  * Verify an access token
- *
- * @param {string} token - JWT string
- * @returns {Object} Decoded user payload
- * @throws {UnauthorizedError} If the token is expired or invalid
  */
 const verifyAccessToken = (token) => {
   try {
@@ -37,4 +29,33 @@ const verifyAccessToken = (token) => {
   }
 };
 
-module.exports = { generateAccessToken, verifyAccessToken };
+/**
+ * Generate a refresh token
+ */
+const generateRefreshToken = (payload) => {
+  return jwt.sign(payload, JWT_REFRESH_SECRET, {
+    expiresIn: JWT_REFRESH_EXPIRES_IN,
+  });
+};
+
+/**
+ * Verify a refresh token
+ */
+const verifyRefreshToken = (token) => {
+  try {
+    return jwt.verify(token, JWT_REFRESH_SECRET);
+  } catch (err) {
+    const message =
+      err.name === "TokenExpiredError"
+        ? "Refresh token expired. Please login again."
+        : "Invalid refresh token.";
+    throw new UnauthorizedError(message);
+  }
+};
+
+module.exports = {
+  generateAccessToken,
+  verifyAccessToken,
+  generateRefreshToken,
+  verifyRefreshToken,
+};

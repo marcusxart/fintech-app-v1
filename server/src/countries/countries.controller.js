@@ -23,7 +23,7 @@ class CountriesController {
     res.status(200).json({
       status: "success",
       count: countriesData.length,
-      countries: countriesData,
+      results: countriesData,
     });
   });
 
@@ -49,7 +49,7 @@ class CountriesController {
 
     res.status(200).json({
       status: "success",
-      country: result,
+      ...result,
     });
   });
 }

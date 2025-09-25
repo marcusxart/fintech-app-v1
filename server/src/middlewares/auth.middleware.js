@@ -1,5 +1,6 @@
-const { verifyAccessToken } = require("../utils/jwt");
+const { verifyAccessToken, verifyRefreshToken } = require("../utils/jwt");
 const { UnauthorizedError } = require("../utils/appError");
+const { Users } = require("../database/models");
 
 /**
  * Authentication middleware to verify JWT access token
@@ -8,7 +9,7 @@ const { UnauthorizedError } = require("../utils/appError");
  * @param {import("express").Response} _res - Express response
  * @param {import("express").NextFunction} next - Express next function
  */
-const authenticate = (req, _res, next) => {
+const authenticate = async (req, _res, next) => {
   const header = req.headers.authorization;
 
   if (!header || !header.startsWith("Bearer ")) {
@@ -20,7 +21,25 @@ const authenticate = (req, _res, next) => {
   const token = header.split(" ")[1];
   req.user = verifyAccessToken(token);
 
-  next();
+  try {
+    const payload = verifyAccessToken(token);
+
+    const user = await Users.findByPk(payload.id);
+
+    if (!user) {
+      throw new UnauthorizedError("User not found");
+    }
+
+    if (!user.refreshToken) {
+      throw new UnauthorizedError("Session expired, please login again.");
+    }
+
+    req.user = { id: user.id, email: user.email };
+
+    next();
+  } catch (error) {
+    return next(error);
+  }
 };
 
 module.exports = authenticate;

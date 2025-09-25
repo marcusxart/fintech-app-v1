@@ -8,7 +8,11 @@ const {
 const { userExcludes } = require("../utils/excludes");
 const { mediaIncludes } = require("../utils/includes");
 const { hashPassword, verifyPassword } = require("../utils/hashPassword");
-const { generateAccessToken } = require("../utils/jwt");
+const {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyRefreshToken,
+} = require("../utils/jwt");
 const withTransaction = require("../utils/withTransaction");
 const { Op } = require("sequelize");
 const OtpService = require("../otp/otp.service");
@@ -70,21 +74,64 @@ class AuthService {
    * Login with email and password
    */
   static async login(email, password) {
-    const user = await Users.findOne({ where: { email } });
-    if (!user) throw new UnauthorizedError("Invalid credentials");
+    return withTransaction(async (transaction) => {
+      const user = await Users.findOne({ where: { email }, transaction });
+      if (!user) throw new UnauthorizedError("Invalid credentials");
 
-    const isMatch = await verifyPassword(password, user.password);
-    if (!isMatch) throw new UnauthorizedError("Invalid credentials");
+      const isMatch = await verifyPassword(password, user.password);
+      if (!isMatch) throw new UnauthorizedError("Invalid credentials");
 
-    const token = generateAccessToken({ id: user.id, email: user.email });
+      const accessToken = generateAccessToken({
+        id: user.id,
+        email: user.email,
+      });
+      const refreshToken = generateRefreshToken({
+        id: user.id,
+        email: user.email,
+      });
+      user.refreshToken = refreshToken;
+      await user.save({ transaction });
 
-    return { token };
+      return { accessToken, refreshToken };
+    });
+  }
+
+  /**
+   * Refresh Access Token
+   */
+  static async refreshToken(refreshToken) {
+    if (!refreshToken) throw new UnauthorizedError("Refresh token required");
+
+    const payload = verifyRefreshToken(refreshToken);
+
+    const user = await Users.findByPk(payload.id);
+    if (!user || user.refreshToken !== refreshToken) {
+      throw new UnauthorizedError("Invalid refresh token");
+    }
+
+    const accessToken = generateAccessToken({ id: user.id, email: user.email });
+    return { accessToken };
+  }
+
+  /**
+   * Logout
+   */
+  static async logout(userId) {
+    return withTransaction(async (transaction) => {
+      const user = await Users.findByPk(userId, { transaction });
+      if (!user) throw new NotFoundError("User not found");
+
+      user.refreshToken = null;
+      await user.save({ transaction });
+
+      return true;
+    });
   }
 
   /**
    * Change the user's password
    */
-  static async changePassword(userId, oldPass, newPass, confirmPass, code) {
+  static async changePassword(userId, oldPass, newPass, confirmPass) {
     return withTransaction(async (transaction) => {
       const user = await Users.findByPk(userId, { transaction });
       if (!user) throw new UnauthorizedError("User not found");
@@ -109,9 +156,6 @@ class AuthService {
 
       if (!user.emailVerified) {
         user.emailVerified = true;
-      }
-
-      if (!code) {
       }
 
       await user.save({ transaction });
@@ -221,23 +265,23 @@ class AuthService {
     return user;
   }
 
-  /**
-   * Verify an OTP for a user (generic)
-   */
-  static async verifyOtp(email, type, code) {
-    const user = await Users.findOne({ where: { email } });
-    if (!user) throw new NotFoundError("User not found");
+  // /**
+  //  * Verify an OTP for a user (generic)
+  //  */
+  // static async verifyOtp(email, type, code) {
+  //   const user = await Users.findOne({ where: { email } });
+  //   if (!user) throw new NotFoundError("User not found");
 
-    if (user.emailVerified && type === "verify-email")
-      throw new BadRequestError("Email already verified");
+  //   if (user.emailVerified && type === "verify-email")
+  //     throw new BadRequestError("Email already verified");
 
-    if (user.phoneNumberVerified && type === "verify-phone-number")
-      throw new BadRequestError("Phone number already verified");
+  //   if (user.phoneNumberVerified && type === "verify-phone-number")
+  //     throw new BadRequestError("Phone number already verified");
 
-    await OtpService.verifyOtp(user.id, type, code);
+  //   await OtpService.verifyOtp(user.id, type, code);
 
-    return true;
-  }
+  //   return true;
+  // }
 }
 
 module.exports = AuthService;

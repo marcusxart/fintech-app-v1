@@ -1,9 +1,3 @@
-const userExcludes = [
-  "password",
-  "resetPasswordToken",
-  "resetPasswordExpires",
-  "verifyToken",
-  "verifyTokenExpires",
-];
+const userExcludes = ["password", "refreshToken", "profileImageId"];
 
 module.exports = { userExcludes };

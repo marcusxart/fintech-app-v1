@@ -11,8 +11,12 @@ module.exports = (sequelize, DataTypes) => {
       Users.hasOne(models.Address, { foreignKey: "userId", as: "address" });
 
       Users.belongsTo(models.Media, {
-        foreignKey: "profileImageId",
+        foreignKey: {
+          name: "profileImageId",
+          allowNull: true,
+        },
         as: "profileImage",
+        constraints: false,
       });
     }
   }
@@ -35,7 +39,10 @@ module.exports = (sequelize, DataTypes) => {
       email: {
         type: DataTypes.STRING,
         allowNull: false,
-        validate: { validate: { isEmail: true } },
+      },
+      refreshToken: {
+        type: DataTypes.TEXT,
+        allowNull: true,
       },
       tier: {
         type: DataTypes.INTEGER,

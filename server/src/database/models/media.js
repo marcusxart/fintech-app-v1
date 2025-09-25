@@ -3,10 +3,7 @@ const { Model } = require("sequelize");
 
 module.exports = (sequelize, DataTypes) => {
   class Media extends Model {
-    static associate(models) {
-      // Each file is uploaded by a User
-      Media.belongsTo(models.Users, { foreignKey: "userId", as: "user" });
-    }
+    static associate(models) {}
   }
 
   Media.init(
@@ -16,10 +13,7 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
       },
-      userId: {
-        type: DataTypes.UUID,
-        allowNull: false,
-      },
+
       key: {
         type: DataTypes.STRING,
         allowNull: false,

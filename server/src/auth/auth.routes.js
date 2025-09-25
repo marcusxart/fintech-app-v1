@@ -8,6 +8,7 @@ const {
   emailSchema,
   resetPasswordSchema,
   verifyEmailSchema,
+  refreshTokenSchema,
 } = require("./auth.validator");
 const authMiddleware = require("../middlewares/auth.middleware");
 
@@ -15,12 +16,12 @@ const router = Router();
 
 // 🔹 Public routes
 router.post(
-  "/register",
+  "/sign-up",
   validateMiddleware(createAccountSchema),
   AuthController.register
 );
 
-router.post("/login", validateMiddleware(loginSchema), AuthController.login);
+router.post("/sign-in", validateMiddleware(loginSchema), AuthController.login);
 
 router.post(
   "/forgot-password",
@@ -45,12 +46,17 @@ router.post(
   validateMiddleware(emailSchema),
   AuthController.sendEmailVerifyCode
 );
+router.post(
+  "/refresh-token",
+  validateMiddleware(refreshTokenSchema),
+  AuthController.refreshToken
+);
 
 // 🔹 Protected routes
 router.use(authMiddleware);
 
 router.get("/me", AuthController.me);
-
+router.post("/sign-out", AuthController.logout);
 router.post(
   "/change-password",
   validateMiddleware(changePasswordSchema),

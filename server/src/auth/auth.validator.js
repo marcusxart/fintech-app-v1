@@ -55,6 +55,11 @@ const phoneNumberField = z
     "Invalid phone number. It must be between 7 and 15 digits"
   );
 
+const tokenField = z
+  .string("Token is required")
+  .trim()
+  .nonempty("Token is required")
+  .min(10, "Invalid token. Please provide a valid JWT or refresh token");
 // 🔹 Schemas
 
 // Create Account
@@ -93,7 +98,6 @@ const changePasswordSchema = z.object({
       ),
       newPassword: passwordField,
       confirmPassword: confirmPasswordField,
-      code: codeField.optional(), // OTP if you want to enforce it
     })
     .refine((data) => data.newPassword === data.confirmPassword, {
       message: "New passwords do not match. Please try again.",
@@ -131,6 +135,13 @@ const verifyEmailSchema = z.object({
   }),
 });
 
+// Refresh Token
+const refreshTokenSchema = z.object({
+  body: z.object({
+    refreshToken: tokenField,
+  }),
+});
+
 module.exports = {
   createAccountSchema,
   loginSchema,
@@ -138,4 +149,5 @@ module.exports = {
   emailSchema,
   resetPasswordSchema,
   verifyEmailSchema,
+  refreshTokenSchema,
 };

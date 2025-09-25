@@ -33,18 +33,46 @@ class AuthController {
   });
 
   /**
+   * Logout user (invalidate refresh token)
+   */
+  static logout = asyncHandler(async (req, res) => {
+    const userId = req.user.id;
+
+    await AuthService.logout(userId);
+
+    res.status(200).json({
+      status: "success",
+      message: "Logged out successfully",
+    });
+  });
+
+  /**
+   * Refresh access token
+   */
+  static refreshToken = asyncHandler(async (req, res) => {
+    const { refreshToken } = req.body;
+
+    const tokens = await AuthService.refreshToken(refreshToken);
+
+    res.status(200).json({
+      status: "success",
+      message: "Access token refreshed successfully",
+      ...tokens,
+    });
+  });
+
+  /**
    * Change password
    */
   static changePassword = asyncHandler(async (req, res) => {
     const userId = req.user.id;
-    const { oldPassword, newPassword, confirmPassword, code } = req.body;
+    const { oldPassword, newPassword, confirmPassword } = req.body;
 
     await AuthService.changePassword(
       userId,
       oldPassword,
       newPassword,
-      confirmPassword,
-      code
+      confirmPassword
     );
 
     res.status(200).json({
@@ -93,7 +121,7 @@ class AuthController {
 
     res.status(200).json({
       status: "success",
-      message: "Password reset token generated",
+      message: "Password reset OTP generated",
       code,
     });
   });
@@ -122,7 +150,7 @@ class AuthController {
 
     res.status(200).json({
       status: "success",
-      user,
+      ...user.toJSON(),
     });
   });
 }
