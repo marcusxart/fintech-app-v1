@@ -1,4 +1,4 @@
-const { Users, Media } = require("../database/models");
+const { Users, Media, Settings } = require("../database/models");
 const {
   BadRequestError,
   ForbiddenError,
@@ -64,6 +64,15 @@ class AuthService {
         {
           transaction,
         }
+      );
+
+      await Settings.create(
+        {
+          userId: user.id,
+          twoFactorEnabled: false,
+          twoFactorSecret: null,
+        },
+        { transaction }
       );
 
       return { userId: user.id };

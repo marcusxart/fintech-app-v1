@@ -18,6 +18,11 @@ module.exports = (sequelize, DataTypes) => {
       userId: {
         type: DataTypes.UUID,
         allowNull: false,
+        references: {
+          model: "Users",
+          key: "id",
+        },
+        onDelete: "CASCADE",
       },
       twoFactorEnabled: {
         type: DataTypes.BOOLEAN,
@@ -31,7 +36,7 @@ module.exports = (sequelize, DataTypes) => {
     {
       sequelize,
       modelName: "Settings",
-      timestamps: true,
+      timestamps: false,
     }
   );
 
