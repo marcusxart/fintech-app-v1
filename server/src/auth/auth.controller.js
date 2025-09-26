@@ -32,6 +32,19 @@ class AuthController {
     });
   });
 
+  // Verify 2FA
+  static verify2FA = asyncHandler(async (req, res) => {
+    const { userId, code } = req.query;
+    console.log(req.query);
+    const tokens = await AuthService.verify2FA(userId, code);
+
+    res.status(200).json({
+      status: "success",
+      message: "2FA verified successfully",
+      ...tokens,
+    });
+  });
+
   /**
    * Logout user (invalidate refresh token)
    */

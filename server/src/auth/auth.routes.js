@@ -9,6 +9,7 @@ const {
   resetPasswordSchema,
   verifyEmailSchema,
   refreshTokenSchema,
+  verify2FASchema,
 } = require("./auth.validator");
 const authMiddleware = require("../middlewares/auth.middleware");
 
@@ -22,6 +23,11 @@ router.post(
 );
 
 router.post("/sign-in", validateMiddleware(loginSchema), AuthController.login);
+router.post(
+  "/verify-2fa",
+  validateMiddleware(verify2FASchema),
+  AuthController.verify2FA
+);
 
 router.post(
   "/forgot-password",

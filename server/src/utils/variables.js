@@ -4,6 +4,7 @@ module.exports = {
     "verify-email",
     "change-password",
     "reset-password",
+    "2fa",
   ],
 
   USER_LEVELS: [1, 2, 3],

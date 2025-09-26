@@ -142,6 +142,14 @@ const refreshTokenSchema = z.object({
   }),
 });
 
+// Verify 2FA
+const verify2FASchema = z.object({
+  query: z.object({
+    userId: z.uuid("Invalid user ID. Must be a valid UUID").trim(),
+    code: codeField,
+  }),
+});
+
 module.exports = {
   createAccountSchema,
   loginSchema,
@@ -150,4 +158,5 @@ module.exports = {
   resetPasswordSchema,
   verifyEmailSchema,
   refreshTokenSchema,
+  verify2FASchema,
 };

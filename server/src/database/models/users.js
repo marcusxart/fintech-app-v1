@@ -9,6 +9,7 @@ module.exports = (sequelize, DataTypes) => {
       Users.hasMany(models.Otp, { foreignKey: "userId", as: "otps" });
       Users.hasOne(models.Kyc, { foreignKey: "userId", as: "kyc" });
       Users.hasOne(models.Address, { foreignKey: "userId", as: "address" });
+      Users.hasOne(models.Settings, { foreignKey: "userId", as: "settings" });
 
       Users.belongsTo(models.Media, {
         foreignKey: {

@@ -84,11 +84,30 @@ class AuthService {
    */
   static async login(email, password) {
     return withTransaction(async (transaction) => {
-      const user = await Users.findOne({ where: { email }, transaction });
+      const user = await Users.findOne({
+        where: { email },
+        include: ["settings"],
+        transaction,
+      });
+
       if (!user) throw new UnauthorizedError("Invalid credentials");
 
       const isMatch = await verifyPassword(password, user.password);
       if (!isMatch) throw new UnauthorizedError("Invalid credentials");
+
+      if (user.settings?.twoFactorEnabled) {
+        const otpCode = await OtpService.generateOtp(
+          user.id,
+          "2fa",
+          transaction
+        );
+        return {
+          requires2FA: true,
+          message: "OTP has been sent. Please verify to complete login.",
+          userId: user.id,
+          code: otpCode,
+        };
+      }
 
       const accessToken = generateAccessToken({
         id: user.id,
@@ -100,6 +119,38 @@ class AuthService {
       });
       user.refreshToken = refreshToken;
       await user.save({ transaction });
+
+      return { accessToken, refreshToken };
+    });
+  }
+
+  /**
+   *  Verify 2fa
+   */
+  static async verify2FA(userId, code) {
+    return withTransaction(async (transaction) => {
+      const user = await Users.findByPk(userId, {
+        transaction,
+        include: ["settings"],
+      });
+      if (!user) throw new NotFoundError("User not found");
+
+      if (!user.settings?.twoFactorEnabled) {
+        throw new BadRequestError(
+          "Two-factor authentication is not enabled for this account"
+        );
+      }
+
+      await OtpService.verifyOtp(userId, "2fa", code, transaction);
+
+      const accessToken = generateAccessToken({
+        id: user.id,
+        email: user.email,
+      });
+      const refreshToken = generateRefreshToken({
+        id: user.id,
+        email: user.email,
+      });
 
       return { accessToken, refreshToken };
     });

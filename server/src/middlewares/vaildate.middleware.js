@@ -17,7 +17,7 @@ const validate = (schema) => {
       });
 
       req.body = result.body;
-      // req.query = result.query;
+      req.query = result.query;
       req.params = result.params;
 
       next();
